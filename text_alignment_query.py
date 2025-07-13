@@ -5,14 +5,15 @@ import os
 import pickle
 import re
 import time
-import openai
+from openai import OpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
 from tqdm import tqdm 
 import multiprocessing as mp
 from prompt_selection import Demon_sampler
 
 class ChatGPT:
-    def __init__(self, args, prompt_path, prompt_name, max_tokens):
+    def __init__(self, args, prompt_path, prompt_name, max_tokens, api_key):
         self.args = args
+        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         self.history_messages = []
         self.history_contents = []
         self.max_tokens = max_tokens
@@ -32,8 +33,8 @@ class ChatGPT:
             self.history_contents.append(message['content'])
             message = self.query_API_to_get_message(self.history_messages)
             self.history_messages.append(message)
-            self.history_contents.append(message['content'])
-            response = message['content'].strip()
+            self.history_contents.append(message.content)
+            response = message.content.strip()
         return response
 
     def query_localLLM_to_get_response(self,message):
@@ -58,8 +59,8 @@ class ChatGPT:
     def query_API_to_get_message(self, messages):
         while True:
             try:
-                res = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
+                res = self.client.chat.completions.create(
+                    model="deepseek-chat",
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
@@ -69,22 +70,22 @@ class ChatGPT:
                 )
                 if args.debug_online:
                     print(res)
-                self.token_num = res['usage']['total_tokens']
-                return res['choices'][0]['message']
-            except openai.error.RateLimitError:
-                print('openai.error.RateLimitError\nRetrying...')
+                self.token_num = res.usage.total_tokens
+                return res.choices[0].message
+            except RateLimitError:
+                print('openai.RateLimitError\nRetrying...')
                 time.sleep(30)
-            except openai.error.ServiceUnavailableError:
-                print('openai.error.ServiceUnavailableError\nRetrying...')
+            except APIStatusError:
+                print('openai.APIStatusError\nRetrying...')
                 time.sleep(20)
-            except openai.error.Timeout:
-                print('openai.error.Timeout\nRetrying...')
+            except APITimeoutError:
+                print('openai.APITimeoutError\nRetrying...')
                 time.sleep(20)
-            except openai.error.APIError:
-                print('openai.error.APIError\nRetrying...')
+            except APIError:
+                print('openai.APIError\nRetrying...')
                 time.sleep(20)
-            except openai.error.APIConnectionError:
-                print('openai.error.APIConnectionError\nRetrying...')
+            except APIConnectionError:
+                print('openai.APIConnectionError\nRetrying...')
                 time.sleep(20)
 
 
@@ -108,10 +109,10 @@ class ChatGPT:
         
 from collections import defaultdict
 class Solver:
-    def __init__(self, args):
+    def __init__(self, args, api_key):
         self.args = args
         self.LLM = ChatGPT(args=args, prompt_path=args.prompt_path, prompt_name=args.prompt_name,
-                           max_tokens=args.max_tokens)
+                           max_tokens=args.max_tokens, api_key=api_key)
         
         self.log = []
         
@@ -165,13 +166,13 @@ class Solver:
         self.log = []
     
     def load_ent_to_text(self):
-        with open('dataset/' + args.dataset + '/entity2text.txt', 'r') as file:
+        with open('dataset/' + args.dataset + '/entity2text.txt', 'r', encoding='utf-8') as file:
             entity_lines = file.readlines()
             for line in entity_lines:
                 ent, text = line.strip().split("\t")
                 self.ent2text[ent] = text
     def load_rel_to_text(self):
-        with open('dataset/' + args.dataset + '/relation2text.txt', 'r') as file:
+        with open('dataset/' + args.dataset + '/relation2text.txt', 'r', encoding='utf-8') as file:
             rel_lines = file.readlines()
             for line in rel_lines:
                 rel, text = line.strip().split("\t")
@@ -182,8 +183,6 @@ def main(args, demonstration_r, idx, api_key):
     from collections import defaultdict
     
 
-    import openai
-    openai.api_key = api_key
     if idx == -1:
         output_path = args.output_path
         chat_log_path = args.chat_log_path
@@ -193,21 +192,20 @@ def main(args, demonstration_r, idx, api_key):
         chat_log_path = args.chat_log_path + "_" + idx
 
     print("Start PID %d and save to %s" % (os.getpid(), chat_log_path))
-    solver = Solver(args)
+    solver = Solver(args, api_key)
 
     import random
-    with open(output_path, "w") as f:
-        with open(chat_log_path, "w") as fclog:
-            for key in demonstration_r:
+    total_items = len(demonstration_r)
+    with open(output_path, "w", encoding='utf-8') as f:
+        with open(chat_log_path, "w", encoding='utf-8') as fclog:
+            for i, key in enumerate(demonstration_r):
+                print(f"--- PID {os.getpid()}: Processing item {i+1}/{total_items}, Relation: {key} ---")
                 try:
                     r = key
                     triples = random.sample(demonstration_r[r],args.demon_per_r)        
                     clean_relation, chat_history = solver.forward(r, triples)
-                except openai.error.InvalidRequestError as e:
-                    print(e)
-                    continue
                 except Exception as e:
-                    logging.exception(e)
+                    print(e)
                     continue
 
                 clean_text = defaultdict(str)
@@ -253,14 +251,20 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     if not args.api_key.startswith("sk-"):
-        with open(args.api_key, "r") as f:
+        with open(args.api_key, "r", encoding='utf-8') as f:
             all_keys = f.readlines()
             all_keys = [line.strip('\n') for line in all_keys]
             assert len(all_keys) == args.num_process, (len(all_keys), args.num_process)
     
     demonstration_r =defaultdict(list)
-    with open("dataset/" + args.dataset + "/demonstration/all_r_triples.txt", "r") as f:
+    with open("dataset/" + args.dataset + "/demonstration/all_r_triples.txt", "r", encoding='utf-8') as f:
         demonstration_r = json.load(f)
+
+    if args.debug_online:
+        import itertools
+        num_test_items = 4 
+        demonstration_r = dict(itertools.islice(demonstration_r.items(), num_test_items))
+        print(f"--- Running in debug_online mode: processing only {len(demonstration_r)} items. ---")
 
     if args.num_process == 1:
         main(args, demonstration_r, idx=-1, api_key=args.api_key)

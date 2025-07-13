@@ -4,14 +4,15 @@ import logging
 import os
 import re
 import time
-import openai
+from openai import OpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
 from tqdm import tqdm 
 import multiprocessing as mp
 from prompt_selection import Demon_sampler
 
 class ChatGPT:
-    def __init__(self, args, prompt_path, prompt_name, max_tokens):
+    def __init__(self, args, prompt_path, prompt_name, max_tokens, api_key):
         self.args = args
+        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         self.history_messages = []
         self.history_contents = []
         self.max_tokens = max_tokens
@@ -30,7 +31,7 @@ class ChatGPT:
             self.history_messages.append(message)
             self.history_contents.append(message['content'])
             message = self.query_API_to_get_message(self.history_messages)
-            response = message['content'].strip()
+            response = message.content.strip()
         return response
 
 
@@ -68,8 +69,8 @@ class ChatGPT:
     def query_API_to_get_message(self, messages):
         while True:
             try:
-                res = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo-0613",
+                res = self.client.chat.completions.create(
+                    model="deepseek-chat",
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
@@ -79,22 +80,22 @@ class ChatGPT:
                 )
                 if args.debug_online:
                     print(res)
-                self.token_num = res['usage']['total_tokens']
-                return res['choices'][0]['message']
-            except openai.error.RateLimitError:
-                print('openai.error.RateLimitError\nRetrying...')
+                self.token_num = res.usage.total_tokens
+                return res.choices[0].message
+            except RateLimitError:
+                print('openai.RateLimitError\nRetrying...')
                 time.sleep(30)
-            except openai.error.ServiceUnavailableError:
-                print('openai.error.ServiceUnavailableError\nRetrying...')
+            except APIStatusError:
+                print('openai.APIStatusError\nRetrying...')
                 time.sleep(20)
-            except openai.error.Timeout:
-                print('openai.error.Timeout\nRetrying...')
+            except APITimeoutError:
+                print('openai.APITimeoutError\nRetrying...')
                 time.sleep(20)
-            except openai.error.APIError:
-                print('openai.error.APIError\nRetrying...')
+            except APIError:
+                print('openai.APIError\nRetrying...')
                 time.sleep(20)
-            except openai.error.APIConnectionError:
-                print('openai.error.APIConnectionError\nRetrying...')
+            except APIConnectionError:
+                print('openai.APIConnectionError\nRetrying...')
                 time.sleep(20)
 
 
@@ -121,10 +122,10 @@ from collections import defaultdict
 import tiktoken
 
 class Solver:
-    def __init__(self, args):
+    def __init__(self, args, api_key):
         self.args = args
         self.LLM = ChatGPT(args=args, prompt_path=args.prompt_path, prompt_name=args.prompt_name,
-                           max_tokens=args.max_tokens)
+                           max_tokens=args.max_tokens, api_key=api_key)
         self.max_llm_input_token = args.max_llm_input_tokens
         self.prompt_selector = Demon_sampler(args)
         
@@ -277,17 +278,17 @@ class Solver:
         self.scores = []
         
     def load_all_candidate_answers(self):
-        with open("dataset/" + self.args.dataset + "/retriever_candidate_"+ args.query +".txt",'r') as load_f:
+        with open("dataset/" + self.args.dataset + "/retriever_candidate_"+ args.query +".txt",'r', encoding='utf-8') as load_f:
             self.all_candidate_answers=json.load(load_f)
             
     def load_relation_text(self):
-        with open("dataset/" + self.args.dataset + "/alignment/alignment_clean.txt",'r') as load_f:
+        with open("dataset/" + self.args.dataset + "/alignment/alignment_clean.txt",'r', encoding='utf-8') as load_f:
             self.rel2text_align=json.load(load_f)  
-        with open("dataset/" + self.args.dataset + "/relation2text.txt",'r') as load_f:
+        with open("dataset/" + self.args.dataset + "/relation2text.txt",'r', encoding='utf-8') as load_f:
             self.rel2text=json.load(load_f)      
             
     def load_rel_txt_to_id(self):
-        with open('dataset/' + self.args.dataset + '/get_neighbor/relation2id.txt', 'r') as file:
+        with open('dataset/' + self.args.dataset + '/get_neighbor/relation2id.txt', 'r', encoding='utf-8') as file:
             relation_lines = file.readlines()
             for line in relation_lines:
                 _name, _id = line.strip().split("\t")
@@ -295,7 +296,7 @@ class Solver:
                 
                 
     def load_ent_map_id(self):
-        with open('dataset/' + self.args.dataset + '/get_neighbor/entity2id.txt', 'r') as file:
+        with open('dataset/' + self.args.dataset + '/get_neighbor/entity2id.txt', 'r', encoding='utf-8') as file:
             entity_lines = file.readlines()
             for line in entity_lines:
                 _name, _id = line.strip().split("\t")
@@ -304,7 +305,7 @@ class Solver:
     
     
     def load_ent_to_text(self):
-        with open('dataset/' + self.args.dataset + '/entity2text.txt', 'r') as file:
+        with open('dataset/' + self.args.dataset + '/entity2text.txt', 'r', encoding='utf-8') as file:
             entity_lines = file.readlines()
             for line in entity_lines:
                 ent, text = line.strip().split("\t")
@@ -320,8 +321,6 @@ def main(args, all_data, idx, api_key):
     from collections import defaultdict
     
 
-    import openai
-    openai.api_key = api_key
     if idx == -1:
         output_path = args.output_path
         chat_log_path = args.chat_log_path
@@ -331,13 +330,14 @@ def main(args, all_data, idx, api_key):
         chat_log_path = args.chat_log_path + "_" + idx
 
     print("Start PID %d and save to %s" % (os.getpid(), output_path))
-    solver = Solver(args)
+    solver = Solver(args, api_key)
 
     count = 0
     valid_count = 0
-    with open(output_path, "w") as f:
-        with open(chat_log_path, "w") as fclog:
-            for sample in tqdm(all_data, total=len(all_data)):
+    with open(output_path, "w", encoding='utf-8') as f:
+        with open(chat_log_path, "w", encoding='utf-8') as fclog:
+            for i, sample in enumerate(tqdm(all_data, total=len(all_data))):
+                print(f"--- PID {os.getpid()}: Processing item {i+1}/{len(all_data)}, ID: {sample['ID']} ---")
                 count += 1
                 try:
                     tpe = sample['HeadEntity'] if args.query == 'tail' else sample['Answer']
@@ -345,11 +345,8 @@ def main(args, all_data, idx, api_key):
                     
                     prediction, chat_history, record = solver.forward(question, tpe)
                     valid_count += 1
-                except openai.error.InvalidRequestError as e:
-                    print(e)
-                    continue
                 except Exception as e:
-                    logging.exception(e)
+                    print(e)
                     continue
 
                 chat = str(sample["ID"]) + "\n" + "\n******\n".join(chat_history) + "\nAnswers: " + str(
@@ -403,21 +400,23 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     if not args.api_key.startswith("sk-"):
-        with open(args.api_key, "r") as f:
+        with open(args.api_key, "r", encoding='utf-8') as f:
             all_keys = f.readlines()
             all_keys = [line.strip('\n') for line in all_keys]
             assert len(all_keys) == args.num_process, (len(all_keys), args.num_process)
     test_triplet = []
 
 
-    with open("dataset/" + args.dataset + "/test_answer.txt",'r') as load_f:
+    with open("dataset/" + args.dataset + "/test_answer.txt",'r', encoding='utf-8') as load_f:
         test_triplet=json.load(load_f)
-    print("Totally %d test examples." % len(test_triplet))
+    print(f"Loaded {len(test_triplet)} total test examples.")
 
 
 
     if args.debug_online:
         test_triplet = test_triplet[0:2*args.num_process]
+        print(f"--- Running in debug_online mode: processing only the first {len(test_triplet)} items. ---")
+        
     if args.num_process == 1:
         main(args, test_triplet, idx=-1, api_key=args.api_key)
     else:

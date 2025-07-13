@@ -3,15 +3,14 @@ Prompt Engineering: 1. Add comparable  2. Add confidence scoreto better and conf
 7.iterative or accumulated update  8.question is/are
 '''
 import json
-from gensim.summarization.bm25 import BM25
-from gensim import corpora
+from rank_bm25 import BM25Okapi
 import operator
 from collections import defaultdict
 import random
 import argparse
 import heapq
 class Demon_sampler:
-    def __init__(self, args):
+    def __init__(self, args, debug_samples=None):
         self.ent2text = defaultdict(str)
         self.entity_supplement = defaultdict(list)
         self.relation_analogy = defaultdict(list)
@@ -21,16 +20,27 @@ class Demon_sampler:
         self.args = args
         self.dataset = args.dataset
         self.load_ent_to_text()
-        self.load_demonstration()
-        self.shrink_link_base()
+        self.load_demonstration(debug_samples=debug_samples)
+        self.shrink_link_base(debug_samples=debug_samples)
         self.demo_list_execution = []
         
-    def load_demonstration(self):
-        with open("dataset/" + self.dataset + "/demonstration/"+ self.args.query +"_supplement.txt", "r") as f:
+    def load_demonstration(self, debug_samples=None):
+        with open("dataset/" + self.dataset + "/demonstration/"+ self.args.query +"_supplement.txt", "r", encoding='utf-8') as f:
             supplement_pool = json.load(f)
 
-        with open("dataset/" + self.dataset + "/demonstration/"+ self.args.query +"_analogy.txt", "r") as f:
+        with open("dataset/" + self.dataset + "/demonstration/"+ self.args.query +"_analogy.txt", "r", encoding='utf-8') as f:
             analogy_pool = json.load(f)
+            
+        if debug_samples:
+            required_keys = set()
+            for sample in debug_samples:
+                tpe_text = sample['HeadEntity'] if self.args.query == 'tail' else sample['Answer']
+                relation_text = sample['Question']
+                required_keys.add('\t'.join([tpe_text, relation_text]))
+
+            supplement_pool = {k: v for k, v in supplement_pool.items() if k in required_keys}
+            analogy_pool = {k: v for k, v in analogy_pool.items() if k in required_keys}
+
 
         keys = self.ent2text.keys()
         for key in supplement_pool:
@@ -86,14 +96,17 @@ class Demon_sampler:
         
     def BM25_arranged(self, tpe, relation):
         demon_list = self.entity_supplement['\t'.join([tpe, relation])]
+        if not demon_list:
+            return
         tpe_text = self.ent2text[tpe]
         question_text = tpe_text + relation if self.args.query == 'tail' else relation + tpe_text
-        texts = ['\t'.join(triple) for triple in demon_list]
-        dictionary = corpora.Dictionary([text.split() for text in texts])
-        corpus = [dictionary.doc2bow(text.split()) for text in texts]
-        bm25 = BM25(corpus)
-        query = dictionary.doc2bow(question_text.split())
-        scores = bm25.get_scores(query)
+        
+        tokenized_corpus = [doc.split(" ") for doc in ['\t'.join(triple) for triple in demon_list]]
+        bm25 = BM25Okapi(tokenized_corpus)
+        
+        tokenized_query = question_text.split(" ")
+        scores = bm25.get_scores(tokenized_query)
+        
         scored_triples = list(zip(demon_list, scores))
         sorted_triples = sorted(scored_triples, key=lambda x: x[1], reverse=True)
         sorted_demon_list = [triple for triple, score in sorted_triples]
@@ -129,9 +142,17 @@ class Demon_sampler:
         return analogy_set,supplement_set
 
         
-    def shrink_link_base(self):
-        with open("dataset/" + self.dataset + "/demonstration/"+ "T_link_base_"+ self.args.query +".txt", "r") as f:
+    def shrink_link_base(self, debug_samples=None):
+        with open("dataset/" + self.dataset + "/demonstration/"+ "T_link_base_"+ self.args.query +".txt", "r", encoding='utf-8') as f:
             self.link_base = json.load(f)
+            
+        if debug_samples:
+            required_keys = set()
+            for sample in debug_samples:
+                tpe_text = sample['HeadEntity'] if self.args.query == 'tail' else sample['Answer']
+                relation_text = sample['Question']
+                required_keys.add('\t'.join([tpe_text, relation_text]))
+            self.link_base = {k: v for k, v in self.link_base.items() if k in required_keys}
         
         for key in self.link_base:
             if len(self.link_base[key]) == 0: 
@@ -147,7 +168,7 @@ class Demon_sampler:
             self.T_link_base[key] = [h_text,r,enetity_link_base]
 
     def load_ent_to_text(self):
-            with open('dataset/' + self.dataset + '/entity2text.txt', 'r') as file:
+            with open('dataset/' + self.dataset + '/entity2text.txt', 'r', encoding='utf-8') as file:
                 entity_lines = file.readlines()
                 for line in entity_lines:
                     ent, text = line.strip().split("\t")

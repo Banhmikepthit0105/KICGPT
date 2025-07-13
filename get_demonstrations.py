@@ -11,7 +11,7 @@ parser.add_argument("--dataset", type=str, default=None)
 args = parser.parse_args()
 
 
-with open('dataset/' + args.dataset + '/get_neighbor/entity2id.txt', 'r') as file:
+with open('dataset/' + args.dataset + '/get_neighbor/entity2id.txt', 'r', encoding='utf-8') as file:
     entity_lines = file.readlines()
     for line in entity_lines:
         _name, _id = line.strip().split("\t")
@@ -19,7 +19,7 @@ with open('dataset/' + args.dataset + '/get_neighbor/entity2id.txt', 'r') as fil
 
 id2relation_name = defaultdict(str)
 
-with open('dataset/' + args.dataset + '/get_neighbor/relation2id.txt', 'r') as file:
+with open('dataset/' + args.dataset + '/get_neighbor/relation2id.txt', 'r', encoding='utf-8') as file:
     relation_lines = file.readlines()
     for line in relation_lines:
         _name, _id = line.strip().split("\t")
@@ -28,16 +28,16 @@ with open('dataset/' + args.dataset + '/get_neighbor/relation2id.txt', 'r') as f
 train_triplet = []
 test_triplet = []
 
-for line in open('dataset/' + args.dataset + '/get_neighbor/train2id.txt', 'r'):
+for line in open('dataset/' + args.dataset + '/get_neighbor/train2id.txt', 'r', encoding='utf-8'):
     head, relation, tail = line.strip('\n').split()
     train_triplet.append(list((int(head), int(relation), int(tail))))
 
-for line in open('dataset/' + args.dataset + '/get_neighbor/test2id.txt', 'r'):
+for line in open('dataset/' + args.dataset + '/get_neighbor/test2id.txt', 'r', encoding='utf-8'):
     head, relation, tail = line.strip('\n').split()
     # train_triplet.append(list((int(head), int(relation), int(tail))))
     test_triplet.append(list((int(head), int(relation), int(tail))))
 
-for line in open('dataset/'+args.dataset+'/get_neighbor/valid2id.txt', 'r'):
+for line in open('dataset/'+args.dataset+'/get_neighbor/valid2id.txt', 'r', encoding='utf-8'):
     head, relation, tail = line.strip('\n').split()
     train_triplet.append(list((int(head), int(relation), int(tail))))
 
@@ -250,36 +250,36 @@ for key in id2relation_name:
 
 
 # Demonstration Pools
-with open("dataset/" + args.dataset + "/demonstration/tail_supplement.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/tail_supplement.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_h, indent=1))
 
-with open("dataset/" + args.dataset + "/demonstration/head_supplement.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/head_supplement.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_t, indent=1))
 
-with open("dataset/" + args.dataset + "/demonstration/tail_analogy.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/tail_analogy.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_r_query_tail, indent=1))
 
-with open("dataset/" + args.dataset + "/demonstration/head_analogy.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/head_analogy.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_r_query_head, indent=1))
 
 
 # Other support files
-with open("dataset/" + args.dataset + "/demonstration/T_link_base_head.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/T_link_base_head.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_link_base_head, indent=1))
 
-with open("dataset/" + args.dataset + "/demonstration/T_link_base_tail.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/T_link_base_tail.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_link_base_tail, indent=1))
 
-with open("dataset/" + args.dataset + "/demonstration/all_r_triples.txt", "w") as file:
+with open("dataset/" + args.dataset + "/demonstration/all_r_triples.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(all_r_triples, indent=1))
 
-with open("dataset/" + args.dataset + "/link_base_id_tail.txt", "w") as file:
+with open("dataset/" + args.dataset + "/link_base_id_tail.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_link_base_id_tail, indent=1))
 
-with open("dataset/" + args.dataset + "/link_base_id_head.txt", "w") as file:
+with open("dataset/" + args.dataset + "/link_base_id_head.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(demonstrations_T_link_base_id_head, indent=1)) 
     
-with open("dataset/" + args.dataset + "/test_answer.txt", "w") as file:
+with open("dataset/" + args.dataset + "/test_answer.txt", "w", encoding='utf-8') as file:
     file.write(json.dumps(test_questions, indent=1))
 
 
@@ -302,7 +302,7 @@ for triplet in test_triplet:
     relation_ = id2relation_name[triplet[1]]
     all_answer_tail['\t'.join([head_, relation_])] = all_answer_tail_raw['\t'.join([head_, relation_])]
     all_answer_head['\t'.join([tail_, relation_])] = all_answer_head_raw['\t'.join([tail_, relation_])]
-with open("dataset/" + args.dataset + "/filter_head.txt",'w') as load_f:
+with open("dataset/" + args.dataset + "/filter_head.txt",'w', encoding='utf-8') as load_f:
     load_f.write(json.dumps(all_answer_head, indent=1))
-with open("dataset/" + args.dataset + "/filter_tail.txt",'w') as load_f:
+with open("dataset/" + args.dataset + "/filter_tail.txt",'w', encoding='utf-8') as load_f:
     load_f.write(json.dumps(all_answer_tail, indent=1))
