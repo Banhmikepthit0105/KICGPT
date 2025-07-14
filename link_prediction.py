@@ -467,7 +467,8 @@ if __name__ == '__main__':
 
 
     if args.debug_online:
-        test_triplet = test_triplet[0:2*args.num_process]
+        num_debug_samples = 10
+        test_triplet = test_triplet[0:num_debug_samples]
         print(f"--- Running in debug_online mode: processing only the first {len(test_triplet)} items. ---")
         
     if args.num_process == 1:
