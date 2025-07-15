@@ -7,3 +7,6 @@ dataset.zip
 dataset/.DS_Store
 datasets/fb15k-237/.gitkeep
 datasets/wn18rr/.gitkeep
+!outputs/wn18rr/*.txt
+!outputs/fb15k-237/*.txt
+
