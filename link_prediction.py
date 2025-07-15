@@ -4,15 +4,27 @@ import logging
 import os
 import re
 import time
-from openai import OpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
+from openai import AzureOpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
 from tqdm import tqdm 
 import multiprocessing as mp
 from prompt_selection import Demon_sampler
+from dotenv import load_dotenv
+
+load_dotenv()
+
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+OPENAI_API_VERSION = os.environ.get('OPENAI_API_VERSION')
+OPENAI_API_ENDPOINT = os.environ.get('OPENAI_API_ENDPOINT')
+deployment_name = 'gpt-4.1'
 
 class ChatGPT:
     def __init__(self, args, prompt_path, prompt_name, max_tokens, api_key):
         self.args = args
-        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        self.client = AzureOpenAI(
+            api_key=api_key,
+            api_version=OPENAI_API_VERSION,
+            azure_endpoint=OPENAI_API_ENDPOINT
+        )
         self.history_messages = []
         self.history_contents = []
         self.max_tokens = max_tokens
@@ -79,7 +91,7 @@ class ChatGPT:
         while True:
             try:
                 res = self.client.chat.completions.create(
-                    model="deepseek-chat",
+                    model=deployment_name,
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
@@ -94,8 +106,8 @@ class ChatGPT:
             except RateLimitError:
                 print('openai.RateLimitError\nRetrying...')
                 time.sleep(30)
-            except APIStatusError:
-                print('openai.APIStatusError\nRetrying...')
+            except APIStatusError as e:
+                print('APIStatusError:', e.status_code, e.response.text)
                 time.sleep(20)
             except APITimeoutError:
                 print('openai.APITimeoutError\nRetrying...')
@@ -381,6 +393,8 @@ def main(args, all_data, idx, api_key):
         output_path = args.output_path + "_" + idx
         chat_log_path = args.chat_log_path + "_" + idx
 
+    print(f"\n========API KEY :  {api_key} ========\n")
+
     print("Start PID %d and save to %s" % (os.getpid(), output_path))
     solver = Solver(args, api_key, debug_samples=all_data if args.debug_online else None)
 
@@ -452,12 +466,16 @@ def parse_args():
 
 
 if __name__ == '__main__':
+
     args = parse_args()
-    if not args.api_key.startswith("sk-"):
-        with open(args.api_key, "r", encoding='utf-8') as f:
-            all_keys = f.readlines()
-            all_keys = [line.strip('\n') for line in all_keys]
-            assert len(all_keys) == args.num_process, (len(all_keys), args.num_process)
+    if args.api_key:
+        all_keys = [args.api_key] * args.num_process
+    else:
+        env_key = OPENAI_API_KEY
+        if env_key is None:
+            raise ValueError("OPENAI_API_KEY not found in environment variables.")
+        all_keys = [env_key] * args.num_process
+
     test_triplet = []
 
 
@@ -491,6 +509,8 @@ if __name__ == '__main__':
         p.close()
         p.join()
         print("All of the child processes over!")
+
+
         
 # Debug: 
 #       python3 link_prediction.py --dataset fb15k-237   --debug --query tail

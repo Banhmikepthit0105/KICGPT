@@ -1,6 +1,9 @@
 *.pyc
 *.txt
 *.tsv
+.venv
+dataset.zip
+!requirements.txt
 dataset/.DS_Store
 datasets/fb15k-237/.gitkeep
 datasets/fb15k-237/.gitkeep

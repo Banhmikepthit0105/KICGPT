@@ -1,2 +1,0 @@
-{"ID": 2477, "HeadEntity": "/m/0299hs", "Answer": "/m/02h40lc", "Question": "/film/film/language", "Prediction": "english language | spanish language | russian language | japanese language | arabic language"}
-{"ID": 0, "HeadEntity": "/m/08966", "Answer": "/m/05lf_", "Question": "/travel/travel_destination/climate./travel/travel_destination_monthly_climate/month", "Prediction": "october | central european time zone-us | eastern european time zone | official website | american indian wars"}
