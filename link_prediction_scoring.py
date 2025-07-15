@@ -4,15 +4,27 @@ import logging
 import os
 import re
 import time
-from openai import OpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
+from openai import AzureOpenAI, RateLimitError, APIStatusError, APITimeoutError, APIError, APIConnectionError
 from tqdm import tqdm 
 import multiprocessing as mp
 from prompt_selection import Demon_sampler
 
+from dotenv import load_dotenv
+load_dotenv()
+
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+OPENAI_API_VERSION = os.environ.get('OPENAI_API_VERSION')
+OPENAI_API_ENDPOINT = os.environ.get('OPENAI_API_ENDPOINT')
+deployment_name = 'gpt-4.1'
+
 class ChatGPT:
     def __init__(self, args, prompt_path, prompt_name, max_tokens, api_key):
         self.args = args
-        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        self.client = AzureOpenAI(
+        api_key=api_key,
+        api_version=OPENAI_API_VERSION,
+        azure_endpoint=OPENAI_API_ENDPOINT
+    )
         self.history_messages = []
         self.history_contents = []
         self.max_tokens = max_tokens
@@ -70,7 +82,7 @@ class ChatGPT:
         while True:
             try:
                 res = self.client.chat.completions.create(
-                    model="deepseek-chat",
+                    model=deployment_name,
                     messages=messages,
                     temperature=0,
                     max_tokens=self.max_tokens,
@@ -79,23 +91,23 @@ class ChatGPT:
                     presence_penalty=0,
                 )
                 if args.debug_online:
-                    print(res)
+                    print("Response content:", res.choices[0].message)
                 self.token_num = res.usage.total_tokens
                 return res.choices[0].message
-            except RateLimitError:
-                print('openai.RateLimitError\nRetrying...')
+            except RateLimitError as e:
+                print(f'openai.RateLimitError: {e}\nRetrying...')
                 time.sleep(30)
-            except APIStatusError:
-                print('openai.APIStatusError\nRetrying...')
+            except APIStatusError as e:
+                print(f'APIStatusError: status_code={e.status_code}, response_text={e.response.text}')
                 time.sleep(20)
-            except APITimeoutError:
-                print('openai.APITimeoutError\nRetrying...')
+            except APITimeoutError as e:
+                print(f'openai.APITimeoutError: {e}\nRetrying...')
                 time.sleep(20)
-            except APIError:
-                print('openai.APIError\nRetrying...')
+            except APIError as e:
+                print(f'openai.APIError: {e}\nRetrying...')
                 time.sleep(20)
-            except APIConnectionError:
-                print('openai.APIConnectionError\nRetrying...')
+            except APIConnectionError as e:
+                print(f'openai.APIConnectionError: {e}\nRetrying...')
                 time.sleep(20)
 
 
@@ -399,11 +411,14 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    if not args.api_key.startswith("sk-"):
-        with open(args.api_key, "r", encoding='utf-8') as f:
-            all_keys = f.readlines()
-            all_keys = [line.strip('\n') for line in all_keys]
-            assert len(all_keys) == args.num_process, (len(all_keys), args.num_process)
+    if args.api_key:
+        all_keys = [args.api_key] * args.num_process
+    else:
+        env_key = OPENAI_API_KEY
+        if env_key is None:
+            raise ValueError("OPENAI_API_KEY not found in environment variables.")
+        all_keys = [env_key] * args.num_process
+
     test_triplet = []
 
 

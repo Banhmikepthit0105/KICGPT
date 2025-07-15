@@ -100,23 +100,23 @@ class ChatGPT:
                     presence_penalty=0,
                 )
                 if args.debug_online:
-                    print(res)
+                    print("Response content:", res.choices[0].message)
                 self.token_num = res.usage.total_tokens
                 return res.choices[0].message
-            except RateLimitError:
-                print('openai.RateLimitError\nRetrying...')
+            except RateLimitError as e:
+                print(f'openai.RateLimitError: {e}\nRetrying...')
                 time.sleep(30)
             except APIStatusError as e:
-                print('APIStatusError:', e.status_code, e.response.text)
+                print(f'APIStatusError: status_code={e.status_code}, response_text={e.response.text}')
                 time.sleep(20)
-            except APITimeoutError:
-                print('openai.APITimeoutError\nRetrying...')
+            except APITimeoutError as e:
+                print(f'openai.APITimeoutError: {e}\nRetrying...')
                 time.sleep(20)
-            except APIError:
-                print('openai.APIError\nRetrying...')
+            except APIError as e:
+                print(f'openai.APIError: {e}\nRetrying...')
                 time.sleep(20)
-            except APIConnectionError:
-                print('openai.APIConnectionError\nRetrying...')
+            except APIConnectionError as e:
+                print(f'openai.APIConnectionError: {e}\nRetrying...')
                 time.sleep(20)
 
 
@@ -393,7 +393,7 @@ def main(args, all_data, idx, api_key):
         output_path = args.output_path + "_" + idx
         chat_log_path = args.chat_log_path + "_" + idx
 
-    print(f"\n========API KEY :  {api_key} ========\n")
+    # print(f"\n========API KEY :  {api_key} ========\n")
 
     print("Start PID %d and save to %s" % (os.getpid(), output_path))
     solver = Solver(args, api_key, debug_samples=all_data if args.debug_online else None)
