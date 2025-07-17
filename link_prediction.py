@@ -15,7 +15,7 @@ load_dotenv()
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 OPENAI_API_VERSION = os.environ.get('OPENAI_API_VERSION')
 OPENAI_API_ENDPOINT = os.environ.get('OPENAI_API_ENDPOINT')
-deployment_name = 'gpt-4.1'
+deployment_name = os.environ.get('DEPLOYMENT_NAME')
 
 class ChatGPT:
     def __init__(self, args, prompt_path, prompt_name, max_tokens, api_key):
@@ -88,6 +88,7 @@ class ChatGPT:
         return message
 
     def query_API_to_get_message(self, messages):
+        # print(f"========== USER: {messages}==========")
         while True:
             try:
                 res = self.client.chat.completions.create(
@@ -520,3 +521,6 @@ if __name__ == '__main__':
 # debug_online: 
 #       python3 link_prediction.py --dataset fb15k-237 --debug_online --query tail
 #       python3 link_prediction.py --dataset fb15k-237 --debug_online --query head
+
+#python link_prediction.py --dataset fb15k-237 --query tail --api_key API_KEY --debug_online
+

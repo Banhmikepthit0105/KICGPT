@@ -2,14 +2,14 @@
   "chat": {
     "init_query": "You are an assistant that helps sort candidate answers to a question by their likelihood. If you understand, reply \"Yes\". Otherwise, reply \"No\".",
     "first_give_demonstration": "The goal question is: {question}. Here are some related examples and supplementary facts that may help sort the candidate answers. Think about what information might be useful before giving your answer.",
-    "analogy_demonstration": "Related examples: \"{selected_analogy_demonstrations}\".",
-    "supplement_demonstration": "Extra facts: \"{selected_supplement_demonstrations}\".",
-    "final_query_template": "The list of candidate answers is {order_of_candidate}. The question is {question}. Based on these examples and your knowledge, please sort them from most to least likely to be correct. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:'",
-    "directly_ask": "The list of candidate answers is {order_of_candidate}. The question is {question}. Please sort them by likelihood of being correct. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:'"
+    "analogy_demonstration": "Related examples: \"{selected_analogy_demonstrations}\"., no need to output",
+    "supplement_demonstration": "Extra facts: \"{selected_supplement_demonstrations}\"., no need to output",
+    "final_query_template": "The list of candidate answers is {order_of_candidate}. The question is {question}. Based on these examples and your knowledge, please sort them from most to least likely to be correct. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:', no need to explain",
+    "directly_ask": "The list of candidate answers is {order_of_candidate}. The question is {question}. Please sort them by likelihood of being correct. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:', no need to explain"
   },
   "w/o_prompt_engineering": {
-    "analogy_demonstration": "Related examples: \"{selected_analogy_demonstrations}\".",
-    "supplement_demonstration": "Extra facts: \"{selected_supplement_demonstrations}\".",
-    "final_query_template": "The list of candidate answers is {order_of_candidate}. The question is {question}. Please sort them by likelihood. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:'"
+    "analogy_demonstration": "Related examples: \"{selected_analogy_demonstrations}\"., no need to output",
+    "supplement_demonstration": "Extra facts: \"{selected_supplement_demonstrations}\"., no need to output",
+    "final_query_template": "The list of candidate answers is {order_of_candidate}. The question is {question}. Please sort them by likelihood. Format: [most possible answer | ... | least possible answer]. Start your response with 'The final order:', no need to explain"
   }
 }
